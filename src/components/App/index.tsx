@@ -8,16 +8,18 @@ import SnackBarElement, { SnackOptions } from '../../lib/SnackBar';
 import '../../lib/SnackBar';
 import Intro from '../intro';
 import '../custom-els/LoadingSpinner';
-import history from '../../lib/history';
-
-const ROUTE_EDITOR = '/editor';
 
 // This is imported for TypeScript only. It isn't used.
 import Compress from '../compress';
+import { AppRouter } from '../Router';
 
 const compressPromise = import(
   /* webpackChunkName: "main-app" */
   '../compress',
+);
+const routerPromise = import(
+  /* webpackChunkName: "router" */
+  '../Router',
 );
 const offlinerPromise = import(
   /* webpackChunkName: "offliner" */
@@ -36,6 +38,7 @@ interface State {
   file?: File | Fileish;
   isEditorOpen: Boolean;
   Compress?: typeof Compress;
+  appRouter?: AppRouter;
 }
 
 export default class App extends Component<Props, State> {
@@ -43,6 +46,7 @@ export default class App extends Component<Props, State> {
     isEditorOpen: false,
     file: undefined,
     Compress: undefined,
+    appRouter: undefined,
   };
 
   snackbar?: SnackBarElement;
@@ -54,6 +58,14 @@ export default class App extends Component<Props, State> {
       this.setState({ Compress: module.default });
     }).catch(() => {
       this.showSnack('Failed to load app');
+    });
+
+    routerPromise.then(({ default: appRouter }) => {
+      appRouter.addPopStateListener((enteredEditor: boolean) =>
+        this.setState({ isEditorOpen: enteredEditor }),
+      );
+
+      this.setState({ appRouter });
     });
 
     offlinerPromise.then(({ offliner }) => offliner(this.showSnack));
@@ -70,14 +82,20 @@ export default class App extends Component<Props, State> {
   }
 
   @bind
+  private async routeToEditor() {
+    const { default: appRouter } = await routerPromise;
+    appRouter.routeToEditor();
+  }
+
+  @bind
   private onFileDrop({ file }: FileDropEvent) {
     if (!file) return;
-    this.setState({ file }, this.openEditor);
+    this.setState({ file }, this.routeToEditor);
   }
 
   @bind
   private onIntroPickFile(file: File | Fileish) {
-    this.setState({ file }, this.openEditor);
+    this.setState({ file }, this.routeToEditor);
   }
 
   @bind
@@ -86,35 +104,20 @@ export default class App extends Component<Props, State> {
     return this.snackbar.showSnackbar(message, options);
   }
 
-  @bind
-  private onPopState() {
-    history.pathname === ROUTE_EDITOR ?
-      this.setState({ isEditorOpen: true }) :
-      this.setState({ isEditorOpen: false });
-  }
-
-  @bind
-  private openEditor() {
-    history.push(ROUTE_EDITOR);
-    this.setState({ isEditorOpen: true });
-  }
-
-  componentDidMount() {
-    history.addPopStateListener(this.onPopState);
-  }
-
   componentWillUnmount() {
-    history.removePopStateListener(this.onPopState);
+    routerPromise.then(({ default: appRouter }) => {
+      appRouter.destroy();
+    });
   }
 
-  render({}: Props, { file, isEditorOpen, Compress }: State) {
+  render({}: Props, { file, isEditorOpen, Compress, appRouter }: State) {
     return (
       <div id="app" class={style.app}>
         <file-drop accept="image/*" onfiledrop={this.onFileDrop} class={style.drop}>
           {(!file || !isEditorOpen)
             ? <Intro onFile={this.onIntroPickFile} showSnack={this.showSnack} />
-            : (Compress)
-              ? <Compress file={file} showSnack={this.showSnack} onBack={history.back} />
+            : (Compress && appRouter)
+              ? <Compress file={file} showSnack={this.showSnack} onBack={appRouter.history.back} />
               : <loading-spinner class={style.appLoader}/>
           }
           <snack-bar ref={linkRef(this, 'snackbar')} />
