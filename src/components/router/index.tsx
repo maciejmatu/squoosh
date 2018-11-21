@@ -15,11 +15,12 @@ export class AppRouter {
   @bind
   public destroy() {
     this.popStateAction &&
-      this.history.removePopStateListener(this.popStateAction);
+      history.removePopStateListener(this.popStateAction);
   }
 
+  @bind
   public routeToEditor() {
-    this.history.push(ROUTE_EDITOR);
+    history.push(ROUTE_EDITOR);
   }
 }
 

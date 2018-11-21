@@ -19,7 +19,7 @@ const compressPromise = import(
 );
 const routerPromise = import(
   /* webpackChunkName: "router" */
-  '../Router',
+  '../router',
 );
 const offlinerPromise = import(
   /* webpackChunkName: "offliner" */
@@ -84,6 +84,7 @@ export default class App extends Component<Props, State> {
   @bind
   private async routeToEditor() {
     const { default: appRouter } = await routerPromise;
+    this.setState({ isEditorOpen: true });
     appRouter.routeToEditor();
   }
 
